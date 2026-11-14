@@ -44,6 +44,10 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private DatabaseHelper databaseHelper;
 
+    // Identifies the currently signed-in user.
+    private long currentUserId = -1;
+
+    // Identifies the event being viewed or edited.
     private int eventId = -1;
 
     /*
@@ -85,6 +89,22 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         // Create access to the application's SQLite database.
         databaseHelper = new DatabaseHelper(this);
+
+        // Retrieve the currently signed-in user's ID.
+        currentUserId = getIntent().getLongExtra("USER_ID", -1);
+
+        // Prevent access when no valid user ID was provided.
+        if (currentUserId <= 0) {
+
+            Toast.makeText(
+                    this,
+                    "Please log in to access your events.",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            finish();
+            return;
+        }
 
         // Retrieve the database ID sent from the Home screen.
         eventId = getIntent().getIntExtra(
@@ -177,8 +197,12 @@ public class EventDetailsActivity extends AppCompatActivity {
      */
     private void loadEventDetails() {
 
+        // Retrieve the event only if it belongs to the current user.
         Cursor cursor =
-                databaseHelper.getEventById(eventId);
+                databaseHelper.getEventById(
+                        currentUserId,
+                        eventId
+                );
 
         try {
 
@@ -236,6 +260,18 @@ public class EventDetailsActivity extends AppCompatActivity {
 
                 textEventLocation.setText(location);
                 textEventDescription.setText(description);
+
+            } else {
+
+                // The event does not exist or does not belong to this user.
+                Toast.makeText(
+                        this,
+                        "Event not found or access denied.",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                finish();
+                return;
             }
 
         } finally {
@@ -560,9 +596,10 @@ public class EventDetailsActivity extends AppCompatActivity {
             return;
         }
 
-        // Update the existing database record.
+        // Update the event only if it belongs to the current user.
         boolean eventUpdated =
                 databaseHelper.updateEvent(
+                        currentUserId,
                         eventId,
                         title,
                         selectedDate,
@@ -640,24 +677,20 @@ public class EventDetailsActivity extends AppCompatActivity {
      */
     private void deleteEvent() {
 
-        // Cancel scheduled SMS reminders before deleting the event.
-        ReminderScheduler.cancelEventReminders(
-                this,
-                eventId
-        );
-
+        // Delete the event only if it belongs to the current user.
         boolean eventDeleted =
                 databaseHelper.deleteEvent(
+                        currentUserId,
                         eventId
                 );
 
         if (eventDeleted) {
 
-            Toast.makeText(
+            // Cancel reminders only after successful deletion.
+            ReminderScheduler.cancelEventReminders(
                     this,
-                    "Event deleted successfully.",
-                    Toast.LENGTH_SHORT
-            ).show();
+                    eventId
+            );
 
             // Return to Home after deleting the event.
             finish();

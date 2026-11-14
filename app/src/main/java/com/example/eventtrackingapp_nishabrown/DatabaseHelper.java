@@ -247,6 +247,36 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * Retrieves the database ID associated with a registered username.
+     *
+     * @param username Username of the registered user.
+     * @return The user's ID, or -1 if the account is not found.
+     */
+    public long getUserId(String username) {
+
+        SQLiteDatabase db = getReadableDatabase();
+
+        try (Cursor cursor = db.query(
+                TABLE_USERS,
+                new String[]{"user_id"},
+                USERNAME + " = ?",
+                new String[]{username},
+                null,
+                null,
+                null
+        )) {
+
+            if (cursor.moveToFirst()) {
+                return cursor.getLong(
+                        cursor.getColumnIndexOrThrow("user_id")
+                );
+            }
+
+            return -1;
+        }
+    }
+
+    /**
      * Checks whether a username is already registered.
      *
      * @param username Username to search for.
@@ -302,16 +332,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Adds a new event to the events table.
+     * Adds a new event to the account of the currently signed-in user.
      *
+     * @param userId      Database ID of the event's owner.
      * @param title       Name of the event.
      * @param date        Scheduled event date.
      * @param time        Scheduled event time.
      * @param location    Event location.
      * @param description Additional event details.
-     * @return database ID of the new event, or -1 if the insert fails.
+     * @return Database ID of the new event, or -1 if creation fails.
      */
     public long createEvent(
+            long userId,
             String title,
             String date,
             String time,
@@ -319,10 +351,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             String description
     ) {
 
+        // Do not create events without a valid user ID.
+        if (userId <= 0) {
+            return -1;
+        }
+
         SQLiteDatabase db = getWritableDatabase();
 
-        // Store the event information before inserting it into the database.
+        // Associate the new event with its owner.
         ContentValues values = new ContentValues();
+        values.put(EVENT_USER_ID, userId);
         values.put(EVENT_TITLE, title);
         values.put(EVENT_DATE, date);
         values.put(EVENT_TIME, time);
@@ -330,8 +368,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(EVENT_DESCRIPTION, description);
 
         /*
-         * SQLite returns the ID assigned to the new row.
-         * Date Mate uses this ID to create unique reminder alarms.
+         * SQLite returns the ID assigned to the new event.
+         * DateMate uses this ID to schedule unique reminder alarms.
          */
         return db.insert(
                 TABLE_EVENTS,
@@ -341,11 +379,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Retrieves the four nearest upcoming events from the database.
+     * Retrieves the four nearest upcoming events belonging to a user.
      *
-     * @return Cursor containing up to four upcoming event records.
+     * @param userId Database ID of the currently signed-in user.
+     * @return Cursor containing up to four upcoming events for that user.
      */
-    public Cursor getAllEvents() {
+    public Cursor getAllEvents(long userId) {
 
         SQLiteDatabase db = getReadableDatabase();
 
@@ -355,12 +394,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 java.util.Locale.US
         ).format(new java.util.Date());
 
-        // Return only current or future events, ordered by date and time.
+        // Retrieve only upcoming events belonging to this account.
         return db.query(
                 TABLE_EVENTS,
                 null,
-                EVENT_DATE + " >= ?",
-                new String[]{today},
+                EVENT_USER_ID + " = ? AND " + EVENT_DATE + " >= ?",
+                new String[]{
+                        String.valueOf(userId),
+                        today
+                },
                 null,
                 null,
                 EVENT_DATE + " ASC, " + EVENT_TIME + " ASC",
@@ -369,23 +411,26 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Retrieves every saved event from the database.
+     * Retrieves all saved events belonging to the currently signed-in user.
      *
-     * @return Cursor containing all event records ordered by date and time.
+     * @param userId Database ID of the currently signed-in user.
+     * @return Cursor containing the user's events ordered by date and time.
      */
-    public Cursor getEveryEvent() {
+    public Cursor getEveryEvent(long userId) {
 
         SQLiteDatabase db = getReadableDatabase();
 
         /*
-         * Return all saved events, including past and future events.
+         * Return all past and future events belonging to this user.
          * This supports the View All Events option on the Home screen.
          */
         return db.query(
                 TABLE_EVENTS,
                 null,
-                null,
-                null,
+                EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(userId)
+                },
                 null,
                 null,
                 EVENT_DATE + " ASC, " + EVENT_TIME + " ASC"
@@ -393,22 +438,28 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Searches all saved events by event title.
+     * Searches saved events by title for the currently signed-in user.
      *
+     * @param userId Database ID of the currently signed-in user.
      * @param searchText Text entered by the user.
-     * @return Cursor containing matching event records.
+     * @return Cursor containing matching events belonging to the user.
      */
-    public Cursor searchEventsByTitle(String searchText) {
+    public Cursor searchEventsByTitle(long userId, String searchText) {
 
         SQLiteDatabase db = getReadableDatabase();
 
-        // Search all events regardless of date so older records
-        // can still be located and managed.
+        /*
+         * Search past and future events belonging to this user.
+         * Partial title matches are supported.
+         */
         return db.query(
                 TABLE_EVENTS,
                 null,
-                EVENT_TITLE + " LIKE ?",
-                new String[]{"%" + searchText + "%"},
+                EVENT_USER_ID + " = ? AND " + EVENT_TITLE + " LIKE ?",
+                new String[]{
+                        String.valueOf(userId),
+                        "%" + searchText + "%"
+                },
                 null,
                 null,
                 EVENT_DATE + " ASC, " + EVENT_TIME + " ASC"
@@ -416,21 +467,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Retrieves one event using its database ID.
+     * Retrieves an event only if it belongs to the signed-in user.
      *
+     * @param userId Database ID of the currently signed-in user.
      * @param eventId Database ID of the requested event.
-     * @return Cursor containing the matching event record.
+     * @return Cursor containing the matching event, if authorized.
      */
-    public Cursor getEventById(int eventId) {
+    public Cursor getEventById(long userId, int eventId) {
 
         SQLiteDatabase db = getReadableDatabase();
 
-        // Search for the event that matches the provided database ID.
+        // Retrieve the event only when both IDs match.
         return db.query(
                 TABLE_EVENTS,
                 null,
-                EVENT_ID + " = ?",
-                new String[]{String.valueOf(eventId)},
+                EVENT_ID + " = ? AND " + EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(eventId),
+                        String.valueOf(userId)
+                },
                 null,
                 null,
                 null
@@ -438,8 +493,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Updates an existing event in the database.
+     * Updates an existing event only if it belongs to the current user.
      *
+     * @param userId      Database ID of the currently signed-in user.
      * @param eventId     Database ID of the event being updated.
      * @param title       Updated event title.
      * @param date        Updated event date.
@@ -449,6 +505,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
      * @return true when the event is successfully updated.
      */
     public boolean updateEvent(
+            long userId,
             int eventId,
             String title,
             String date,
@@ -456,6 +513,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             String location,
             String description
     ) {
+
+        // Reject invalid user or event IDs.
+        if (userId <= 0 || eventId <= 0) {
+            return false;
+        }
 
         SQLiteDatabase db = getWritableDatabase();
 
@@ -467,30 +529,44 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(EVENT_LOCATION, location);
         values.put(EVENT_DESCRIPTION, description);
 
+        // Update only when the event belongs to the specified user.
         int rowsUpdated = db.update(
                 TABLE_EVENTS,
                 values,
-                EVENT_ID + " = ?",
-                new String[]{String.valueOf(eventId)}
+                EVENT_ID + " = ? AND " + EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(eventId),
+                        String.valueOf(userId)
+                }
         );
 
         return rowsUpdated > 0;
     }
 
     /**
-     * Deletes an event from the database.
+     * Deletes an event only if it belongs to the current user.
      *
+     * @param userId  Database ID of the currently signed-in user.
      * @param eventId Database ID of the event being deleted.
      * @return true when the event is successfully deleted.
      */
-    public boolean deleteEvent(int eventId) {
+    public boolean deleteEvent(long userId, int eventId) {
+
+        // Reject invalid user or event IDs.
+        if (userId <= 0 || eventId <= 0) {
+            return false;
+        }
 
         SQLiteDatabase db = getWritableDatabase();
 
+        // Delete only when the event belongs to the specified user.
         int rowsDeleted = db.delete(
                 TABLE_EVENTS,
-                EVENT_ID + " = ?",
-                new String[]{String.valueOf(eventId)}
+                EVENT_ID + " = ? AND " + EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(eventId),
+                        String.valueOf(userId)
+                }
         );
 
         return rowsDeleted > 0;

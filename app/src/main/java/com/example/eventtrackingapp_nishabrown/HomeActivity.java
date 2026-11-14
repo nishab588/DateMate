@@ -45,6 +45,9 @@ public class HomeActivity extends AppCompatActivity {
 
     private DatabaseHelper databaseHelper;
 
+    // Identifies the user currently signed in to DateMate.
+    private long currentUserId = -1;
+
     // Tracks whether the user is viewing every saved event.
     private boolean showingAllEvents = false;
 
@@ -53,6 +56,30 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_home);
+
+        // Retrieve the user ID provided during authentication.
+        currentUserId = getIntent().getLongExtra("USER_ID", -1);
+
+        // Prevent access when no authenticated user ID is available.
+        if (currentUserId <= 0) {
+
+            Toast.makeText(
+                    this,
+                    "Please log in to access your events.",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            // Return to the login screen.
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK |
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK
+            );
+
+            startActivity(intent);
+            finish();
+            return;
+        }
 
         // Reference the Home screen controls.
         buttonAddEvent =
@@ -85,7 +112,7 @@ public class HomeActivity extends AppCompatActivity {
                 )
         );
 
-        // Open the Add Event screen.
+        // Open the Add Event screen for the currently signed-in user.
         buttonAddEvent.setOnClickListener(view -> {
 
             Intent intent =
@@ -93,6 +120,9 @@ public class HomeActivity extends AppCompatActivity {
                             HomeActivity.this,
                             AddEventActivity.class
                     );
+
+            // Pass the current user's ID to the Add Event screen.
+            intent.putExtra("USER_ID", currentUserId);
 
             startActivity(intent);
         });
@@ -236,18 +266,20 @@ public class HomeActivity extends AppCompatActivity {
                         "Delete",
                         (dialog, which) -> {
 
-                            // Cancel scheduled reminders before deleting the event.
-                            ReminderScheduler.cancelEventReminders(
-                                    HomeActivity.this,
-                                    eventId
-                            );
-
+                            // Delete the event only if it belongs to the current user.
                             boolean eventDeleted =
                                     databaseHelper.deleteEvent(
+                                            currentUserId,
                                             eventId
                                     );
 
                             if (eventDeleted) {
+
+                                // Cancel reminders only after successful deletion.
+                                ReminderScheduler.cancelEventReminders(
+                                        HomeActivity.this,
+                                        eventId
+                                );
 
                                 Toast.makeText(
                                         HomeActivity.this,
@@ -301,6 +333,11 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        // Do not load events without a valid user ID.
+        if (currentUserId <= 0) {
+            return;
+        }
 
         String searchText =
                 editSearchEvents == null
@@ -381,6 +418,7 @@ public class HomeActivity extends AppCompatActivity {
 
         Cursor cursor =
                 databaseHelper.searchEventsByTitle(
+                        currentUserId,
                         searchText
                 );
 
@@ -441,7 +479,7 @@ public class HomeActivity extends AppCompatActivity {
         gridUpcomingEvents.removeAllViews();
 
         Cursor cursor =
-                databaseHelper.getAllEvents();
+                databaseHelper.getAllEvents(currentUserId);
 
         try {
 
@@ -500,7 +538,7 @@ public class HomeActivity extends AppCompatActivity {
         gridUpcomingEvents.removeAllViews();
 
         Cursor cursor =
-                databaseHelper.getEveryEvent();
+                databaseHelper.getEveryEvent(currentUserId);
 
         try {
 
@@ -677,9 +715,16 @@ public class HomeActivity extends AppCompatActivity {
                             EventDetailsActivity.class
                     );
 
+            // Identify the selected event.
             intent.putExtra(
                     "EVENT_ID",
                     eventId
+            );
+
+            // Identify the currently signed-in user.
+            intent.putExtra(
+                    "USER_ID",
+                    currentUserId
             );
 
             startActivity(intent);

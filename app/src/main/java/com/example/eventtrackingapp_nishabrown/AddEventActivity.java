@@ -40,6 +40,9 @@ public class AddEventActivity extends AppCompatActivity {
 
     private DatabaseHelper databaseHelper;
 
+    // Identifies the account creating the new event.
+    private long currentUserId = -1;
+
     /*
      * These values are stored in database-friendly formats:
      *
@@ -61,6 +64,21 @@ public class AddEventActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_add_event);
+
+        // Retrieve the account ID passed from the Home screen.
+        currentUserId = getIntent().getLongExtra("USER_ID", -1);
+
+        // Prevent event creation when account information is missing.
+        if (currentUserId <= 0) {
+            Toast.makeText(
+                    this,
+                    "Please log in to create an event.",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            finish();
+            return;
+        }
 
         // Reference the controls used to create a new event.
         editEventName = findViewById(R.id.editEventName);
@@ -376,6 +394,7 @@ public class AddEventActivity extends AppCompatActivity {
          */
         long eventId =
                 databaseHelper.createEvent(
+                        currentUserId,
                         title,
                         selectedDate,
                         selectedTime,

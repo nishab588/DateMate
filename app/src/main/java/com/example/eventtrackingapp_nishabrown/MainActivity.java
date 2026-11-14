@@ -72,8 +72,8 @@ public class MainActivity extends AppCompatActivity {
      */
     private void loginUser() {
 
-        String username = editUsername.getText().toString().trim();
-        String password = editPassword.getText().toString().trim();
+        String username = editUsername.getText().toString();
+        String password = editPassword.getText().toString();
 
         // Require both fields before attempting a database lookup.
         if (username.isEmpty() || password.isEmpty()) {
@@ -87,15 +87,31 @@ public class MainActivity extends AppCompatActivity {
 
         // Check the credentials stored in the SQLite database.
         if (databaseHelper.checkUser(username, password)) {
+
+            // Retrieve the authenticated user's database ID.
+            long userId = databaseHelper.getUserId(username);
+
+            if (userId == -1) {
+                Toast.makeText(
+                        this,
+                        "Unable to retrieve account information.",
+                        Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
+
             Toast.makeText(
                     this,
                     "Login successful.",
                     Toast.LENGTH_SHORT
             ).show();
 
-            // The HomeActivity will be created in the next step.
+            // Open HomeActivity with the user's information.
             Intent intent = new Intent(this, HomeActivity.class);
+            intent.putExtra("USER_ID", userId);
+            intent.putExtra("USERNAME", username);
             startActivity(intent);
+
         } else {
             Toast.makeText(
                     this,
