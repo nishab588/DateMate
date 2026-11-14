@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+    Event Details screen for Date Mate.
+    Displays complete information for a selected event and provides
+    controls for editing or deleting the event.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/eventDetailsContent"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="20dp">
+
+    <!-- Groups the navigation control and centered screen title. -->
+    <LinearLayout
+        android:id="@+id/layoutHeader"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Opens the navigation menu containing the primary app destinations. -->
+        <ImageButton
+            android:id="@+id/buttonMenu"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Open navigation menu"
+            android:padding="12dp"
+            android:src="@drawable/ic_menu" />
+
+        <!-- Identifies the purpose of the current screen. -->
+        <TextView
+            android:id="@+id/textEventDetailsTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="Event Details"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <!-- Balances the menu control so the screen title remains centered. -->
+        <Space
+            android:layout_width="48dp"
+            android:layout_height="48dp" />
+
+    </LinearLayout>
+
+    <!-- Displays and allows editing of the selected event name. -->
+    <EditText
+        android:id="@+id/textEventNameLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:enabled="false"
+        android:gravity="center"
+        android:inputType="textCapSentences"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader" />
+
+    <!-- Labels the event date information. -->
+    <TextView
+        android:id="@+id/textDateLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:text="Date"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textEventNameLabel" />
+
+    <!-- Displays and allows editing of the selected event date. -->
+    <EditText
+        android:id="@+id/textEventDate"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:enabled="false"
+        android:inputType="date"
+        android:textSize="16sp"
+        app:layout_constraintBaseline_toBaselineOf="@id/textDateLabel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/textDateLabel" />
+
+    <!-- Labels the event time information. -->
+    <TextView
+        android:id="@+id/textTimeLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Time"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textDateLabel" />
+
+    <!-- Displays and allows editing of the selected event time. -->
+    <EditText
+        android:id="@+id/textEventTime"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:enabled="false"
+        android:inputType="time"
+        android:textSize="16sp"
+        app:layout_constraintBaseline_toBaselineOf="@id/textTimeLabel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/textTimeLabel" />
+
+    <!-- Labels the event location information. -->
+    <TextView
+        android:id="@+id/textLocationLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Location"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textTimeLabel" />
+
+    <!-- Displays and allows editing of the selected event location. -->
+    <EditText
+        android:id="@+id/textEventLocation"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:enabled="false"
+        android:inputType="textCapWords"
+        android:textSize="16sp"
+        app:layout_constraintBaseline_toBaselineOf="@id/textLocationLabel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/textLocationLabel" />
+
+    <!-- Labels the event description. -->
+    <TextView
+        android:id="@+id/textDescriptionLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Description"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textLocationLabel" />
+
+    <!-- Displays and allows editing of the selected event description. -->
+    <EditText
+        android:id="@+id/textEventDescription"
+        android:layout_width="0dp"
+        android:layout_height="120dp"
+        android:layout_marginTop="8dp"
+        android:background="#E8EAF6"
+        android:enabled="false"
+        android:gravity="top|start"
+        android:inputType="textCapSentences|textMultiLine"
+        android:padding="12dp"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textDescriptionLabel" />
+
+    <!-- Opens the Edit Event screen with the selected event information. -->
+    <Button
+        android:id="@+id/buttonEditEvent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Edit Event"
+        app:layout_constraintEnd_toStartOf="@id/buttonDeleteEvent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textEventDescription" />
+
+    <!-- Removes the selected event from the database after confirmation. -->
+    <Button
+        android:id="@+id/buttonDeleteEvent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="Delete Event"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/buttonEditEvent"
+        app:layout_constraintTop_toTopOf="@id/buttonEditEvent" />
+
+    <!-- Saves modifications made to the selected event. -->
+    <Button
+        android:id="@+id/buttonSaveChanges"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Save Changes"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonEditEvent" />
+
+    <!-- Returns the user to the Home screen without making changes. -->
+    <Button
+        android:id="@+id/buttonCancel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Cancel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonSaveChanges" />
+
+    <!-- Provides access to assistance from the Event Details screen. -->
+    <Button
+        android:id="@+id/buttonHelp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="Open help"
+        android:text="Help"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
