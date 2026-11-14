@@ -151,7 +151,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return result != -1;
     }
 
-
     /**
      * Creates a new user account with complete registration information.
      * The password is securely hashed before being saved.
@@ -195,10 +194,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
+
     /**
-     * Verifies a user's login credentials.
-     * Existing plain-text passwords are upgraded to secure hashes
-     * after a successful login.
+     * Verifies a user's login credentials using secure password hashing.
      *
      * @param username Username entered on the login screen.
      * @param password Password entered on the login screen.
@@ -209,12 +207,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             String password
     ) {
 
-        SQLiteDatabase db = getWritableDatabase();
+        SQLiteDatabase db = getReadableDatabase();
 
-        // Find the account using its username.
+        // Find the registered account using its username.
         try (Cursor cursor = db.query(
                 TABLE_USERS,
-                new String[]{USER_ID, PASSWORD},
+                new String[]{PASSWORD},
                 USERNAME + " = ?",
                 new String[]{username},
                 null,
@@ -227,49 +225,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 return false;
             }
 
-            long userId = cursor.getLong(
-                    cursor.getColumnIndexOrThrow(USER_ID)
-            );
-
+            // Retrieve the stored password hash.
             String storedPassword = cursor.getString(
                     cursor.getColumnIndexOrThrow(PASSWORD)
             );
 
-            // Verify passwords already stored using PBKDF2.
-            if (storedPassword != null &&
-                    storedPassword.matches("^[0-9]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$")) {
-
-                return PasswordUtils.verifyPassword(
-                        password,
-                        storedPassword
-                );
+            // Reject missing or invalid password records.
+            if (storedPassword == null ||
+                    !storedPassword.matches(
+                            "^[0-9]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$"
+                    )) {
+                return false;
             }
 
-            // Support an existing account with a plain-text password.
-            if (storedPassword != null &&
-                    storedPassword.equals(password)) {
-
-                // Replace the old password with a secure hash.
-                ContentValues values = new ContentValues();
-                values.put(
-                        PASSWORD,
-                        PasswordUtils.hashPassword(password)
-                );
-
-                int updatedRows = db.update(
-                        TABLE_USERS,
-                        values,
-                        USER_ID + " = ? AND " + PASSWORD + " = ?",
-                        new String[]{
-                                String.valueOf(userId),
-                                storedPassword
-                        }
-                );
-
-                return updatedRows == 1;
-            }
-
-            return false;
+            // Verify the entered password against the stored PBKDF2 hash.
+            return PasswordUtils.verifyPassword(
+                    password,
+                    storedPassword
+            );
         }
     }
 
