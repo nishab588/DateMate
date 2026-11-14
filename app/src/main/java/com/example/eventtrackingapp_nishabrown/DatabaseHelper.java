@@ -14,7 +14,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // Database information.
     private static final String DATABASE_NAME = "DateMate.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
 
     // Users table and column names.
     private static final String TABLE_USERS = "users";
@@ -25,6 +25,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // Events table and column names.
     private static final String TABLE_EVENTS = "events";
     private static final String EVENT_ID = "event_id";
+    private static final String EVENT_USER_ID = "user_id";
     private static final String EVENT_TITLE = "title";
     private static final String EVENT_DATE = "date";
     private static final String EVENT_TIME = "time";
@@ -59,18 +60,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String createEventsTable =
                 "CREATE TABLE " + TABLE_EVENTS + " (" +
                         EVENT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        EVENT_USER_ID + " INTEGER, " +
                         EVENT_TITLE + " TEXT NOT NULL, " +
                         EVENT_DATE + " TEXT, " +
                         EVENT_TIME + " TEXT, " +
                         EVENT_LOCATION + " TEXT, " +
-                        EVENT_DESCRIPTION + " TEXT)";
+                        EVENT_DESCRIPTION + " TEXT, " +
+                        "FOREIGN KEY (" + EVENT_USER_ID + ") REFERENCES " +
+                        TABLE_USERS + "(" + USER_ID + "))";
 
         db.execSQL(createUsersTable);
         db.execSQL(createEventsTable);
     }
 
     /**
-     * Recreates database tables when the database version is upgraded.
+     * Updates the database structure without deleting existing records.
      *
      * @param db         SQLite database instance.
      * @param oldVersion Previous database version.
@@ -83,11 +87,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             int newVersion
     ) {
 
-        // Remove existing tables before creating the updated versions.
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_EVENTS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
-
-        onCreate(db);
+        // Version 2 adds user ownership to saved events.
+        if (oldVersion < 2) {
+            db.execSQL(
+                    "ALTER TABLE " + TABLE_EVENTS +
+                            " ADD COLUMN " + EVENT_USER_ID + " INTEGER"
+            );
+        }
     }
 
     /**
