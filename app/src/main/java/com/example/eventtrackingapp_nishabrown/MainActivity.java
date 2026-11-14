@@ -41,8 +41,11 @@ public class MainActivity extends AppCompatActivity {
         // Attempt to authenticate the user when Log In is selected.
         buttonLogin.setOnClickListener(view -> loginUser());
 
-        // Create a new account when the user selects Create New Account.
-        buttonCreateAccount.setOnClickListener(view -> createAccount());
+        // Open the registration screen when Create New Account is selected.
+        buttonCreateAccount.setOnClickListener(view -> {
+            Intent intent = new Intent(MainActivity.this, RegisterActivity.class);
+            startActivity(intent);
+        });
 
         // Adjust the layout to prevent content from overlapping system bars.
         ViewCompat.setOnApplyWindowInsetsListener(

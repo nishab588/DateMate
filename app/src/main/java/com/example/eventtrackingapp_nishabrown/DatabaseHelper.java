@@ -14,13 +14,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // Database information.
     private static final String DATABASE_NAME = "DateMate.db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     // Users table and column names.
     private static final String TABLE_USERS = "users";
     private static final String USER_ID = "user_id";
     private static final String USERNAME = "username";
     private static final String PASSWORD = "password";
+
+    // Additional user registration fields.
+    private static final String FIRST_NAME = "first_name";
+    private static final String LAST_NAME = "last_name";
+    private static final String EMAIL = "email";
+    private static final String PHONE = "phone";
 
     // Events table and column names.
     private static final String TABLE_EVENTS = "events";
@@ -53,8 +59,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String createUsersTable =
                 "CREATE TABLE " + TABLE_USERS + " (" +
                         USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        USERNAME + " TEXT UNIQUE NOT NULL, " +
-                        PASSWORD + " TEXT NOT NULL)";
+                        FIRST_NAME + " TEXT, " +
+                        LAST_NAME + " TEXT, " +
+                        EMAIL + " TEXT UNIQUE, " +
+                        PHONE + " TEXT, " +
+                        USERNAME + " TEXT UNIQUE, " +
+                        PASSWORD + " TEXT)";
 
         // Create the table used to store event information.
         String createEventsTable =
@@ -74,25 +84,38 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Updates the database structure without deleting existing records.
+     * Updates the database structure while preserving existing data.
      *
      * @param db         SQLite database instance.
      * @param oldVersion Previous database version.
      * @param newVersion Updated database version.
      */
     @Override
-    public void onUpgrade(
-            SQLiteDatabase db,
-            int oldVersion,
-            int newVersion
-    ) {
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
-        // Version 2 adds user ownership to saved events.
+        // Version 2: Add user ownership to events.
         if (oldVersion < 2) {
-            db.execSQL(
-                    "ALTER TABLE " + TABLE_EVENTS +
-                            " ADD COLUMN " + EVENT_USER_ID + " INTEGER"
-            );
+            db.execSQL("ALTER TABLE " + TABLE_EVENTS +
+                    " ADD COLUMN " + EVENT_USER_ID + " INTEGER");
+        }
+
+        // Version 3: Add additional user registration information.
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE " + TABLE_USERS +
+                    " ADD COLUMN " + FIRST_NAME + " TEXT");
+
+            db.execSQL("ALTER TABLE " + TABLE_USERS +
+                    " ADD COLUMN " + LAST_NAME + " TEXT");
+
+            db.execSQL("ALTER TABLE " + TABLE_USERS +
+                    " ADD COLUMN " + EMAIL + " TEXT");
+
+            db.execSQL("ALTER TABLE " + TABLE_USERS +
+                    " ADD COLUMN " + PHONE + " TEXT");
+
+            // Prevent duplicate email addresses regardless of capitalization.
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email " +
+                    "ON " + TABLE_USERS + "(" + EMAIL + " COLLATE NOCASE)");
         }
     }
 
@@ -110,10 +133,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         SQLiteDatabase db = getWritableDatabase();
 
-        // Store the new user's credentials.
+        // Generate a secure password hash before storing the account.
+        String hashedPassword = PasswordUtils.hashPassword(password);
+
+        // Store the username and hashed password.
         ContentValues values = new ContentValues();
         values.put(USERNAME, username);
-        values.put(PASSWORD, password);
+        values.put(PASSWORD, hashedPassword);
 
         // Insert the user into the database.
         long result = db.insert(
@@ -125,38 +151,126 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return result != -1;
     }
 
+
     /**
-     * Checks whether the provided username and password match
-     * an existing user account.
+     * Creates a new user account with complete registration information.
+     * The password is securely hashed before being saved.
+     *
+     * @param firstName User's first name.
+     * @param lastName User's optional last name.
+     * @param email User's email address.
+     * @param phone User's phone number.
+     * @param username User's selected username.
+     * @param password User's selected password.
+     * @return New user's database ID, or -1 if registration fails.
+     */
+    public long createUser(
+            String firstName,
+            String lastName,
+            String email,
+            String phone,
+            String username,
+            String password
+    ) {
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        // Securely hash the password before storing it.
+        String hashedPassword = PasswordUtils.hashPassword(password);
+
+        // Prepare the registration information for the database.
+        ContentValues values = new ContentValues();
+        values.put(FIRST_NAME, firstName);
+        values.put(LAST_NAME, lastName);
+        values.put(EMAIL, email);
+        values.put(PHONE, phone);
+        values.put(USERNAME, username);
+        values.put(PASSWORD, hashedPassword);
+
+        // Insert the new account and return its database ID.
+        return db.insert(
+                TABLE_USERS,
+                null,
+                values
+        );
+    }
+
+    /**
+     * Verifies a user's login credentials.
+     * Existing plain-text passwords are upgraded to secure hashes
+     * after a successful login.
      *
      * @param username Username entered on the login screen.
      * @param password Password entered on the login screen.
-     * @return true when matching credentials are found.
+     * @return true when the credentials are valid.
      */
     public boolean checkUser(
             String username,
             String password
     ) {
 
-        SQLiteDatabase db = getReadableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
 
-        // Search for a user with the provided username and password.
-        Cursor cursor = db.query(
+        // Find the account using its username.
+        try (Cursor cursor = db.query(
                 TABLE_USERS,
-                new String[]{USER_ID},
-                USERNAME + " = ? AND " + PASSWORD + " = ?",
-                new String[]{username, password},
+                new String[]{USER_ID, PASSWORD},
+                USERNAME + " = ?",
+                new String[]{username},
                 null,
                 null,
                 null
-        );
+        )) {
 
-        boolean userExists = cursor.getCount() > 0;
+            // Reject usernames that are not registered.
+            if (!cursor.moveToFirst()) {
+                return false;
+            }
 
-        // Release the cursor after the query is complete.
-        cursor.close();
+            long userId = cursor.getLong(
+                    cursor.getColumnIndexOrThrow(USER_ID)
+            );
 
-        return userExists;
+            String storedPassword = cursor.getString(
+                    cursor.getColumnIndexOrThrow(PASSWORD)
+            );
+
+            // Verify passwords already stored using PBKDF2.
+            if (storedPassword != null &&
+                    storedPassword.matches("^[0-9]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$")) {
+
+                return PasswordUtils.verifyPassword(
+                        password,
+                        storedPassword
+                );
+            }
+
+            // Support an existing account with a plain-text password.
+            if (storedPassword != null &&
+                    storedPassword.equals(password)) {
+
+                // Replace the old password with a secure hash.
+                ContentValues values = new ContentValues();
+                values.put(
+                        PASSWORD,
+                        PasswordUtils.hashPassword(password)
+                );
+
+                int updatedRows = db.update(
+                        TABLE_USERS,
+                        values,
+                        USER_ID + " = ? AND " + PASSWORD + " = ?",
+                        new String[]{
+                                String.valueOf(userId),
+                                storedPassword
+                        }
+                );
+
+                return updatedRows == 1;
+            }
+
+            return false;
+        }
     }
 
     /**
@@ -185,6 +299,33 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
 
         return exists;
+    }
+
+
+    /**
+     * Checks whether an email address is already registered.
+     *
+     * @param email Email address to search for.
+     * @return true if the email address already exists.
+     */
+    public boolean emailExists(String email) {
+
+        SQLiteDatabase db = getReadableDatabase();
+
+        // Search for an existing account with the same email address.
+        try (Cursor cursor = db.query(
+                TABLE_USERS,
+                new String[]{USER_ID},
+                EMAIL + " = ? COLLATE NOCASE",
+                new String[]{email},
+                null,
+                null,
+                null
+        )) {
+
+            // Return true if a matching email address is found.
+            return cursor.moveToFirst();
+        }
     }
 
     /**
