@@ -112,20 +112,30 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/buttonViewAllEvents" />
 
-    <!-- Displays the four nearest upcoming events in a two-column grid. -->
-    <GridLayout
-        android:id="@+id/gridUpcomingEvents"
+    <!-- Allows users to scroll through the event list. -->
+    <ScrollView
+        android:id="@+id/scrollEventList"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
-        android:columnCount="2"
-        android:useDefaultMargins="false"
+        android:fillViewport="true"
+        android:scrollbars="vertical"
+        app:layout_constraintTop_toBottomOf="@id/textUpcomingEvents"
         app:layout_constraintBottom_toTopOf="@id/buttonHelp"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/textUpcomingEvents">
+        app:layout_constraintEnd_toEndOf="parent">
 
-    </GridLayout>
+        <!-- Displays upcoming events or all saved events in two columns. -->
+        <GridLayout
+            android:id="@+id/gridUpcomingEvents"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:useDefaultMargins="false">
+
+        </GridLayout>
+
+    </ScrollView>
 
     <!-- Provides access to assistance from the home screen. -->
     <Button
@@ -138,6 +148,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/gridUpcomingEvents" />
+        app:layout_constraintTop_toBottomOf="@id/scrollEventList" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -693,15 +693,8 @@ public class HomeActivity extends AppCompatActivity {
         Button editButton =
                 new Button(this);
 
-        editButton.setText("Edit");
+        editButton.setText("View Details");
         editButton.setAllCaps(false);
-
-        // Create the Delete button.
-        Button deleteButton =
-                new Button(this);
-
-        deleteButton.setText("Delete");
-        deleteButton.setAllCaps(false);
 
         // Store the database ID with the event card.
         eventCard.setTag(eventId);
@@ -730,20 +723,11 @@ public class HomeActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Confirm before permanently deleting the selected event.
-        deleteButton.setOnClickListener(
-                view -> showDeleteConfirmationDialog(
-                        eventId,
-                        title
-                )
-        );
-
         // Add event information and actions to the card.
         eventCard.addView(titleView);
         eventCard.addView(dateView);
         eventCard.addView(timeView);
         eventCard.addView(editButton);
-        eventCard.addView(deleteButton);
 
         // Display the completed event card.
         gridUpcomingEvents.addView(

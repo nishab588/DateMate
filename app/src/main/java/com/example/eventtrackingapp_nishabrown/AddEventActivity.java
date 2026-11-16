@@ -3,9 +3,13 @@ package com.example.eventtrackingapp_nishabrown;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,7 +20,9 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -32,9 +38,18 @@ public class AddEventActivity extends AppCompatActivity {
     private TextView textSelectedDate;
     private TextView textSelectedTime;
 
+    // Displays the selected end date for recurring events.
+    private TextView textRecurrenceEndDate;
+
     private Button buttonSelectDate;
     private Button buttonSelectTime;
     private Button buttonSaveEvent;
+
+    // Opens the date picker for the recurring event end date.
+    private Button buttonRecurrenceEndDate;
+
+    // Allows users to select how frequently an event repeats.
+    private Spinner spinnerEventRepeat;
 
     private ImageButton buttonMenu;
 
@@ -51,6 +66,9 @@ public class AddEventActivity extends AppCompatActivity {
      */
     private String selectedDate = "";
     private String selectedTime = "";
+
+    // Stores the final date of a recurring event series.
+    private String selectedRecurrenceEndDate = "";
 
     // Store individual date and time values for user-friendly display.
     private int selectedYear = -1;
@@ -87,10 +105,13 @@ public class AddEventActivity extends AppCompatActivity {
 
         textSelectedDate = findViewById(R.id.textSelectedDate);
         textSelectedTime = findViewById(R.id.textSelectedTime);
+        textRecurrenceEndDate = findViewById(R.id.textRecurrenceEndDate);
 
         buttonSelectDate = findViewById(R.id.buttonSelectDate);
         buttonSelectTime = findViewById(R.id.buttonSelectTime);
         buttonSaveEvent = findViewById(R.id.buttonSaveEvent);
+        buttonRecurrenceEndDate = findViewById(R.id.buttonRecurrenceEndDate);
+        spinnerEventRepeat = findViewById(R.id.spinnerEventRepeat);
 
         // Reference the hamburger navigation button.
         buttonMenu = findViewById(R.id.buttonMenu);
@@ -106,6 +127,60 @@ public class AddEventActivity extends AppCompatActivity {
         // Create access to the application's SQLite database.
         databaseHelper = new DatabaseHelper(this);
 
+        // Define the available recurrence frequencies.
+        String[] repeatOptions = {
+                "Does Not Repeat",
+                "Daily",
+                "Weekly",
+                "Monthly"
+        };
+
+        // Create the adapter that displays the recurrence options.
+        ArrayAdapter<String> repeatAdapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                repeatOptions
+        );
+
+        // Use the standard dropdown layout when the Spinner is opened.
+        repeatAdapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item
+        );
+
+        // Connect the recurrence options to the Spinner.
+        spinnerEventRepeat.setAdapter(repeatAdapter);
+
+        // Show the recurrence end date controls only for repeating events.
+        spinnerEventRepeat.setOnItemSelectedListener(
+                new AdapterView.OnItemSelectedListener() {
+
+                    @Override
+                    public void onItemSelected(
+                            AdapterView<?> parent,
+                            View view,
+                            int position,
+                            long id
+                    ) {
+
+                        // Position 0 represents "Does Not Repeat".
+                        boolean isRecurring = position != 0;
+
+                        buttonRecurrenceEndDate.setVisibility(
+                                isRecurring ? View.VISIBLE : View.GONE
+                        );
+
+                        textRecurrenceEndDate.setVisibility(
+                                isRecurring ? View.VISIBLE : View.GONE
+                        );
+                    }
+
+                    @Override
+                    public void onNothingSelected(AdapterView<?> parent) {
+                        // No action is required.
+                    }
+                }
+        );
+
         // Open the date selector when the user chooses Select Date.
         buttonSelectDate.setOnClickListener(
                 view -> showDatePicker()
@@ -114,6 +189,11 @@ public class AddEventActivity extends AppCompatActivity {
         // Open the time selector when the user chooses Select Time.
         buttonSelectTime.setOnClickListener(
                 view -> showTimePicker()
+        );
+
+        // Open the calendar to select the recurring event end date.
+        buttonRecurrenceEndDate.setOnClickListener(
+                view -> showRecurrenceEndDatePicker()
         );
 
         // Save the event and schedule its reminders.
@@ -190,6 +270,64 @@ public class AddEventActivity extends AppCompatActivity {
                         month,
                         day
                 );
+
+        datePickerDialog.show();
+    }
+
+    /**
+     * Allows the user to select the final date of a recurring event series.
+     */
+    private void showRecurrenceEndDatePicker() {
+
+        Calendar calendar = Calendar.getInstance();
+
+        // Use the event's starting date when one has been selected.
+        if (selectedYear != -1) {
+            calendar.set(selectedYear, selectedMonth, selectedDay);
+        }
+
+        DatePickerDialog datePickerDialog = new DatePickerDialog(
+                this,
+                (view, year, month, day) -> {
+
+                    // Store the end date in SQLite-friendly format.
+                    selectedRecurrenceEndDate = String.format(
+                            Locale.US,
+                            "%04d-%02d-%02d",
+                            year,
+                            month + 1,
+                            day
+                    );
+
+                    // Display the selected date in a readable format.
+                    Calendar endCalendar = Calendar.getInstance();
+                    endCalendar.set(year, month, day);
+
+                    SimpleDateFormat dateFormat = new SimpleDateFormat(
+                            "MMMM d, yyyy",
+                            Locale.US
+                    );
+
+                    textRecurrenceEndDate.setText(
+                            "Repeat Ends: " +
+                                    dateFormat.format(endCalendar.getTime())
+                    );
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+        );
+
+        // Prevent selecting an end date before the event's start date.
+        if (selectedYear != -1) {
+            Calendar minimumDate = Calendar.getInstance();
+            minimumDate.clear();
+            minimumDate.set(selectedYear, selectedMonth, selectedDay);
+
+            datePickerDialog.getDatePicker().setMinDate(
+                    minimumDate.getTimeInMillis()
+            );
+        }
 
         datePickerDialog.show();
     }
@@ -345,6 +483,46 @@ public class AddEventActivity extends AppCompatActivity {
     }
 
     /**
+     * Advances a calendar to the next recurring event date.
+     *
+     * @param calendar Date of the current occurrence.
+     * @param recurrenceType Selected recurrence frequency.
+     */
+    private void advanceRecurrenceDate(
+            Calendar calendar,
+            String recurrenceType
+    ) {
+
+        switch (recurrenceType) {
+
+            case "Daily":
+                calendar.add(Calendar.DAY_OF_MONTH, 1);
+                break;
+
+            case "Weekly":
+                calendar.add(Calendar.WEEK_OF_YEAR, 1);
+                break;
+
+            case "Monthly":
+                // Move to the first day before advancing to avoid date overflow.
+                calendar.set(Calendar.DAY_OF_MONTH, 1);
+                calendar.add(Calendar.MONTH, 1);
+
+                // Preserve the original day when possible.
+                // Otherwise, use the last valid day of the month.
+                int lastDayOfMonth = calendar.getActualMaximum(
+                        Calendar.DAY_OF_MONTH
+                );
+
+                calendar.set(
+                        Calendar.DAY_OF_MONTH,
+                        Math.min(selectedDay, lastDayOfMonth)
+                );
+                break;
+        }
+    }
+
+    /**
      * Validates the event information, stores the event in SQLite,
      * and schedules the event's SMS reminder alarms.
      */
@@ -382,6 +560,65 @@ public class AddEventActivity extends AppCompatActivity {
             return;
         }
 
+        // Determine whether the user selected a recurring event.
+        boolean isRecurring = spinnerEventRepeat.getSelectedItemPosition() != 0;
+
+        // Require a valid end date when recurrence is enabled.
+        if (isRecurring) {
+
+            if (selectedRecurrenceEndDate.isEmpty()) {
+
+                Toast.makeText(
+                        this,
+                        "Please select a repeat end date.",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                return;
+            }
+
+            // Dates use yyyy-MM-dd, so chronological string comparison is valid.
+            if (selectedRecurrenceEndDate.compareTo(selectedDate) < 0) {
+
+                Toast.makeText(
+                        this,
+                        "The repeat end date cannot be before the event date.",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                return;
+            }
+        }
+
+        // Identify the recurrence frequency selected by the user.
+        String recurrenceType = "None";
+
+        if (isRecurring) {
+            recurrenceType = spinnerEventRepeat
+                    .getSelectedItem()
+                    .toString();
+        }
+
+        // Begin a transaction when saving a recurring event series.
+        if (isRecurring) {
+            databaseHelper.beginEventTransaction();
+        }
+
+        // Track whether the recurring event transaction has started.
+        boolean transactionStarted = isRecurring;
+
+        // Keep the original event ID available after the transaction ends.
+        long eventId = -1;
+
+        // Track whether all event occurrences were saved successfully.
+        boolean eventSavedSuccessfully = false;
+
+        // Store the IDs and dates of additional recurring occurrences.
+        List<Long> recurringEventIds = new ArrayList<>();
+        List<String> recurringEventDates = new ArrayList<>();
+
+        try {
+
         /*
          * Store the new event in SQLite.
          *
@@ -392,7 +629,7 @@ public class AddEventActivity extends AppCompatActivity {
          * The user still sees the friendly formatted versions
          * displayed on the screen.
          */
-        long eventId =
+        eventId =
                 databaseHelper.createEvent(
                         currentUserId,
                         title,
@@ -404,23 +641,124 @@ public class AddEventActivity extends AppCompatActivity {
 
         if (eventId != -1) {
 
-            // Schedule the 24-hour and day-of reminders for the new event.
-            ReminderScheduler.scheduleEventReminders(
-                    this,
-                    (int) eventId,
-                    title,
-                    selectedDate,
-                    selectedTime
-            );
+            // Associate the first event with its recurring series.
+            if (isRecurring) {
 
-            Toast.makeText(
-                    this,
-                    "Event saved successfully.",
-                    Toast.LENGTH_SHORT
-            ).show();
+                boolean recurrenceSaved = databaseHelper.setEventRecurrence(
+                        currentUserId,
+                        eventId,
+                        recurrenceType,
+                        selectedRecurrenceEndDate,
+                        eventId
+                );
 
-            // Return to the previous screen after a successful save.
-            finish();
+                if (!recurrenceSaved) {
+
+                    Toast.makeText(
+                            this,
+                            "Unable to save recurrence information.",
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    return;
+                }
+            }
+
+            // Prepare the dates used to generate additional occurrences.
+            if (isRecurring) {
+
+                Calendar occurrenceDate = Calendar.getInstance();
+                occurrenceDate.clear();
+                occurrenceDate.set(
+                        selectedYear,
+                        selectedMonth,
+                        selectedDay
+                );
+
+                // Establish the final date allowed for this recurring series.
+                Calendar recurrenceEndDate = Calendar.getInstance();
+                recurrenceEndDate.clear();
+
+                String[] endDateParts = selectedRecurrenceEndDate.split("-");
+
+                recurrenceEndDate.set(
+                        Integer.parseInt(endDateParts[0]),
+                        Integer.parseInt(endDateParts[1]) - 1,
+                        Integer.parseInt(endDateParts[2])
+                );
+
+                // Move past the initial event, which has already been saved.
+                advanceRecurrenceDate(occurrenceDate, recurrenceType);
+
+                // Generate each additional occurrence through the selected end date.
+                while (!occurrenceDate.after(recurrenceEndDate)) {
+
+                    // Format the occurrence date for SQLite.
+                    String occurrenceDateString = String.format(
+                            Locale.US,
+                            "%04d-%02d-%02d",
+                            occurrenceDate.get(Calendar.YEAR),
+                            occurrenceDate.get(Calendar.MONTH) + 1,
+                            occurrenceDate.get(Calendar.DAY_OF_MONTH)
+                    );
+
+                    // Save this occurrence as a separate event belonging to the user.
+                    long occurrenceId = databaseHelper.createEvent(
+                            currentUserId,
+                            title,
+                            occurrenceDateString,
+                            selectedTime,
+                            location,
+                            description
+                    );
+
+                    // Stop saving the series if an occurrence could not be created.
+                    if (occurrenceId == -1) {
+
+                        Toast.makeText(
+                                this,
+                                "Unable to create a recurring event occurrence.",
+                                Toast.LENGTH_SHORT
+                        ).show();
+
+                        return;
+                    }
+
+                    // Associate the new occurrence with the original recurring series.
+                    boolean occurrenceRecurrenceSaved = databaseHelper.setEventRecurrence(
+                            currentUserId,
+                            occurrenceId,
+                            recurrenceType,
+                            selectedRecurrenceEndDate,
+                            eventId
+                    );
+
+                    if (!occurrenceRecurrenceSaved) {
+                        Toast.makeText(
+                                this,
+                                "Unable to save recurring event information.",
+                                Toast.LENGTH_SHORT
+                        ).show();
+
+                        return;
+                    }
+
+                    // Record this occurrence for reminder scheduling after the transaction.
+                    recurringEventIds.add(occurrenceId);
+                    recurringEventDates.add(occurrenceDateString);
+
+                    // Advance to the next date in the recurring series.
+                    advanceRecurrenceDate(occurrenceDate, recurrenceType);
+                }
+            }
+
+            // Commit the recurring series only after every occurrence is saved.
+            if (isRecurring) {
+                databaseHelper.markEventTransactionSuccessful();
+            }
+
+            // All required database operations completed successfully.
+            eventSavedSuccessfully = true;
 
         } else {
 
@@ -429,6 +767,47 @@ public class AddEventActivity extends AppCompatActivity {
                     "Unable to save event.",
                     Toast.LENGTH_SHORT
             ).show();
+        }
+
+        } finally {
+            if (transactionStarted) {
+                databaseHelper.endEventTransaction();
+            }
+        }
+
+        // Schedule reminders only after the event has been saved successfully.
+        if (eventSavedSuccessfully && eventId != -1) {
+            ReminderScheduler.scheduleEventReminders(
+                    this,
+                    (int) eventId,
+                    title,
+                    selectedDate,
+                    selectedTime
+            );
+        }
+
+        // Schedule reminders for additional recurring occurrences.
+        if (eventSavedSuccessfully && eventId != -1) {
+            for (int i = 0; i < recurringEventIds.size(); i++) {
+                ReminderScheduler.scheduleEventReminders(
+                        this,
+                        recurringEventIds.get(i).intValue(),
+                        title,
+                        recurringEventDates.get(i),
+                        selectedTime
+                );
+            }
+        }
+
+        // Confirm the event was saved and return to the previous screen.
+        if (eventSavedSuccessfully && eventId != -1) {
+            Toast.makeText(
+                    this,
+                    "Event saved successfully.",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            finish();
         }
     }
 }

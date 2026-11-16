@@ -14,7 +14,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // Database information.
     private static final String DATABASE_NAME = "DateMate.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     // Users table and column names.
     private static final String TABLE_USERS = "users";
@@ -37,6 +37,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String EVENT_TIME = "time";
     private static final String EVENT_LOCATION = "location";
     private static final String EVENT_DESCRIPTION = "description";
+
+    // Recurring event information.
+    private static final String EVENT_RECURRENCE_TYPE = "recurrence_type";
+    private static final String EVENT_RECURRENCE_END_DATE = "recurrence_end_date";
+    private static final String EVENT_SERIES_ID = "series_id";
 
     /**
      * Creates an instance of the database helper.
@@ -76,6 +81,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         EVENT_TIME + " TEXT, " +
                         EVENT_LOCATION + " TEXT, " +
                         EVENT_DESCRIPTION + " TEXT, " +
+                        EVENT_RECURRENCE_TYPE + " TEXT, " +
+                        EVENT_RECURRENCE_END_DATE + " TEXT, " +
+                        EVENT_SERIES_ID + " INTEGER, " +
                         "FOREIGN KEY (" + EVENT_USER_ID + ") REFERENCES " +
                         TABLE_USERS + "(" + USER_ID + "))";
 
@@ -116,6 +124,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             // Prevent duplicate email addresses regardless of capitalization.
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email " +
                     "ON " + TABLE_USERS + "(" + EMAIL + " COLLATE NOCASE)");
+        }
+
+        // Version 4: Add recurring event information.
+        if (oldVersion < 4) {
+
+            db.execSQL("ALTER TABLE " + TABLE_EVENTS +
+                    " ADD COLUMN " + EVENT_RECURRENCE_TYPE + " TEXT");
+
+            db.execSQL("ALTER TABLE " + TABLE_EVENTS +
+                    " ADD COLUMN " + EVENT_RECURRENCE_END_DATE + " TEXT");
+
+            db.execSQL("ALTER TABLE " + TABLE_EVENTS +
+                    " ADD COLUMN " + EVENT_SERIES_ID + " INTEGER");
         }
     }
 
@@ -379,6 +400,74 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * Associates an event with a recurring series.
+     *
+     * @param userId Account that owns the event.
+     * @param eventId Database ID of the event.
+     * @param recurrenceType Daily, Weekly, or Monthly.
+     * @param recurrenceEndDate Final date of the series.
+     * @param seriesId Shared ID identifying the recurring series.
+     * @return True if the event was updated successfully.
+     */
+    public boolean setEventRecurrence(
+            long userId,
+            long eventId,
+            String recurrenceType,
+            String recurrenceEndDate,
+            long seriesId
+    ) {
+
+        // Prevent updates without valid account and event IDs.
+        if (userId <= 0 || eventId <= 0 || seriesId <= 0) {
+            return false;
+        }
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        // Store the recurrence details for this event.
+        ContentValues values = new ContentValues();
+        values.put(EVENT_RECURRENCE_TYPE, recurrenceType);
+        values.put(EVENT_RECURRENCE_END_DATE, recurrenceEndDate);
+        values.put(EVENT_SERIES_ID, seriesId);
+
+        // Update only an event belonging to the specified account.
+        int rowsUpdated = db.update(
+                TABLE_EVENTS,
+                values,
+                EVENT_ID + " = ? AND " + EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(eventId),
+                        String.valueOf(userId)
+                }
+        );
+
+        return rowsUpdated > 0;
+    }
+
+    /**
+     * Begins a database transaction for saving a recurring event series.
+     */
+    public void beginEventTransaction() {
+        getWritableDatabase().beginTransaction();
+    }
+
+    /**
+     * Marks the current event transaction as successful.
+     * Changes will be committed when the transaction ends.
+     */
+    public void markEventTransactionSuccessful() {
+        getWritableDatabase().setTransactionSuccessful();
+    }
+
+    /**
+     * Ends the current event transaction.
+     * Commits successful changes or rolls back unsuccessful changes.
+     */
+    public void endEventTransaction() {
+        getWritableDatabase().endTransaction();
+    }
+
+    /**
      * Retrieves the four nearest upcoming events belonging to a user.
      *
      * @param userId Database ID of the currently signed-in user.
@@ -566,6 +655,177 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 new String[]{
                         String.valueOf(eventId),
                         String.valueOf(userId)
+                }
+        );
+
+        return rowsDeleted > 0;
+    }
+
+    /**
+     * Retrieves all events belonging to a recurring series
+     * owned by the specified user.
+     *
+     * @param userId Database ID of the currently signed-in user.
+     * @param seriesId Shared ID of the recurring event series.
+     * @return Cursor containing the events in the series.
+     */
+    public Cursor getEventsBySeriesId(long userId, long seriesId) {
+
+        SQLiteDatabase db = getReadableDatabase();
+
+        return db.query(
+                TABLE_EVENTS,
+                null,
+                EVENT_USER_ID + " = ? AND " + EVENT_SERIES_ID + " = ?",
+                new String[]{
+                        String.valueOf(userId),
+                        String.valueOf(seriesId)
+                },
+                null,
+                null,
+                EVENT_DATE + " ASC"
+        );
+    }
+
+    /**
+     * Retrieves the selected occurrence and all later occurrences
+     * belonging to the same recurring series and user.
+     *
+     * @param userId Database ID of the currently signed-in user.
+     * @param seriesId Shared ID of the recurring event series.
+     * @param startDate Date of the selected occurrence (yyyy-MM-dd).
+     * @return Cursor containing the selected and future occurrences.
+     */
+    public Cursor getFutureEventsBySeriesId(
+            long userId,
+            long seriesId,
+            String startDate
+    ) {
+
+        SQLiteDatabase db = getReadableDatabase();
+
+        return db.query(
+                TABLE_EVENTS,
+                null,
+                EVENT_USER_ID + " = ? AND "
+                        + EVENT_SERIES_ID + " = ? AND "
+                        + EVENT_DATE + " >= ?",
+                new String[]{
+                        String.valueOf(userId),
+                        String.valueOf(seriesId),
+                        startDate
+                },
+                null,
+                null,
+                EVENT_DATE + " ASC, " + EVENT_ID + " ASC"
+        );
+    }
+
+    /**
+     * Updates the shared details of one recurring event occurrence
+     * while preserving its scheduled date.
+     *
+     * @param userId Database ID of the currently signed-in user.
+     * @param eventId Database ID of the occurrence being updated.
+     * @param title Updated event title.
+     * @param time Updated event time.
+     * @param location Updated event location.
+     * @param description Updated event description.
+     * @return True if the occurrence was updated successfully.
+     */
+    public boolean updateRecurringEventDetails(
+            long userId,
+            int eventId,
+            String title,
+            String time,
+            String location,
+            String description
+    ) {
+
+        if (userId <= 0 || eventId <= 0) {
+            return false;
+        }
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(EVENT_TITLE, title);
+        values.put(EVENT_TIME, time);
+        values.put(EVENT_LOCATION, location);
+        values.put(EVENT_DESCRIPTION, description);
+
+        int rowsUpdated = db.update(
+                TABLE_EVENTS,
+                values,
+                EVENT_ID + " = ? AND " + EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(eventId),
+                        String.valueOf(userId)
+                }
+        );
+
+        return rowsUpdated > 0;
+    }
+
+    /**
+     * Updates the scheduled date of one recurring event occurrence.
+     *
+     * @param userId Database ID of the currently signed-in user.
+     * @param eventId Database ID of the occurrence being updated.
+     * @param date Updated event date (yyyy-MM-dd).
+     * @return True if the date was updated successfully.
+     */
+    public boolean updateRecurringEventDate(
+            long userId,
+            int eventId,
+            String date
+    ) {
+
+        if (userId <= 0 || eventId <= 0) {
+            return false;
+        }
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(EVENT_DATE, date);
+
+        int rowsUpdated = db.update(
+                TABLE_EVENTS,
+                values,
+                EVENT_ID + " = ? AND " + EVENT_USER_ID + " = ?",
+                new String[]{
+                        String.valueOf(eventId),
+                        String.valueOf(userId)
+                }
+        );
+
+        return rowsUpdated > 0;
+    }
+
+    /**
+     * Deletes all events in a recurring series owned by the specified user.
+     *
+     * @param userId Database ID of the currently signed-in user.
+     * @param seriesId Shared ID of the recurring event series.
+     * @return True if at least one event was deleted.
+     */
+    public boolean deleteEventSeries(long userId, long seriesId) {
+
+        // Reject invalid user or series IDs.
+        if (userId <= 0 || seriesId <= 0) {
+            return false;
+        }
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        // Delete only events belonging to this user and series.
+        int rowsDeleted = db.delete(
+                TABLE_EVENTS,
+                EVENT_USER_ID + " = ? AND " + EVENT_SERIES_ID + " = ?",
+                new String[]{
+                        String.valueOf(userId),
+                        String.valueOf(seriesId)
                 }
         );
 
