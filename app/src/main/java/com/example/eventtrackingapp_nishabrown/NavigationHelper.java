@@ -9,8 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 /**
  * Provides consistent hamburger menu navigation throughout Date Mate.
  */
-public final class
-NavigationHelper {
+public final class NavigationHelper {
 
     /**
      * Prevents creation of NavigationHelper objects.
@@ -71,6 +70,32 @@ NavigationHelper {
                     Intent intent = new Intent(
                             activity,
                             AddEventActivity.class
+                    );
+
+                    activity.startActivity(intent);
+                }
+
+                return true;
+
+            } else if (itemId == R.id.menuCalendar) {
+
+                // Open the Calendar unless it is already being displayed.
+                if (!(activity instanceof CalendarActivity)) {
+
+                    Intent intent = new Intent(
+                            activity,
+                            CalendarActivity.class
+                    );
+
+                    // Pass the authenticated user's ID to the Calendar.
+                    long currentUserId = activity.getIntent().getLongExtra(
+                            "USER_ID",
+                            -1
+                    );
+
+                    intent.putExtra(
+                            "USER_ID",
+                            currentUserId
                     );
 
                     activity.startActivity(intent);

@@ -527,6 +527,78 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * Retrieves events belonging to the signed-in user
+     * that are scheduled for a specific calendar date.
+     *
+     * @param userId Database ID of the signed-in user.
+     * @param selectedDate Selected date in yyyy-MM-dd format.
+     * @return Cursor containing events for the selected date,
+     *         ordered by their scheduled time.
+     */
+    public Cursor getEventsByDate(long userId, String selectedDate) {
+
+        SQLiteDatabase db = getReadableDatabase();
+
+        /*
+         * Filter events by both the authenticated user's ID
+         * and the date selected on the calendar.
+         */
+        return db.query(
+                TABLE_EVENTS,
+                null,
+                EVENT_USER_ID + " = ? AND " + EVENT_DATE + " = ?",
+                new String[]{
+                        String.valueOf(userId),
+                        selectedDate
+                },
+                null,
+                null,
+                EVENT_TIME + " ASC"
+        );
+    }
+
+    /**
+     * Retrieves all events belonging to the signed-in user
+     * for a specific calendar month.
+     *
+     * @param userId Database ID of the signed-in user.
+     * @param year Selected calendar year.
+     * @param month Selected month (1 through 12).
+     * @return Cursor containing the month's events,
+     *         ordered by date and time.
+     */
+    public Cursor getEventsByMonth(long userId, int year, int month) {
+
+        SQLiteDatabase db = getReadableDatabase();
+
+        // Format the selected month as yyyy-MM.
+        String selectedMonth = String.format(
+                java.util.Locale.US,
+                "%04d-%02d",
+                year,
+                month
+        );
+
+        /*
+         * Retrieve events belonging to the current user
+         * whose dates fall within the selected month.
+         */
+        return db.query(
+                TABLE_EVENTS,
+                null,
+                EVENT_USER_ID + " = ? AND " +
+                        EVENT_DATE + " LIKE ?",
+                new String[]{
+                        String.valueOf(userId),
+                        selectedMonth + "-%"
+                },
+                null,
+                null,
+                EVENT_DATE + " ASC, " + EVENT_TIME + " ASC"
+        );
+    }
+
+    /**
      * Searches saved events by title for the currently signed-in user.
      *
      * @param userId Database ID of the currently signed-in user.

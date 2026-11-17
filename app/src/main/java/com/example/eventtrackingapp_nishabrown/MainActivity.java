@@ -13,7 +13,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 /**
- * Handles user login and account creation for the Date Mate application.
+ * Handles user authentication and navigation to the registration
+ * screen for the DateMate application.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -116,50 +117,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(
                     this,
                     "Invalid username or password.",
-                    Toast.LENGTH_SHORT
-            ).show();
-        }
-    }
-
-    /**
-     * Creates a new user account using the entered credentials.
-     */
-    private void createAccount() {
-
-        String username = editUsername.getText().toString().trim();
-        String password = editPassword.getText().toString().trim();
-
-        // Require both fields before creating an account.
-        if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(
-                    this,
-                    "Please enter a username and password.",
-                    Toast.LENGTH_SHORT
-            ).show();
-            return;
-        }
-
-        // Prevent duplicate usernames from being stored.
-        if (databaseHelper.usernameExists(username)) {
-            Toast.makeText(
-                    this,
-                    "That username already exists.",
-                    Toast.LENGTH_SHORT
-            ).show();
-            return;
-        }
-
-        // Save the new account to the users table.
-        if (databaseHelper.createUser(username, password)) {
-            Toast.makeText(
-                    this,
-                    "Account created successfully.",
-                    Toast.LENGTH_SHORT
-            ).show();
-        } else {
-            Toast.makeText(
-                    this,
-                    "Unable to create account.",
                     Toast.LENGTH_SHORT
             ).show();
         }

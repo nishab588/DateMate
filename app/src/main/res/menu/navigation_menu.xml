@@ -9,6 +9,11 @@
         android:id="@+id/menuAddEvent"
         android:title="Add Event" />
 
+    <!-- Opens DateMate's interactive monthly calendar. -->
+    <item
+        android:id="@+id/menuCalendar"
+        android:title="Calendar" />
+
     <item
         android:id="@+id/menuSettings"
         android:title="Settings" />
