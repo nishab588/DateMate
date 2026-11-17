@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+    DateMate Calendar screen.
+    Displays a monthly calendar and a list of events
+    scheduled for the selected date.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/calendarContent"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- Displays the screen title. -->
+    <TextView
+        android:id="@+id/textCalendarTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="DateMate Calendar"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Custom controls for navigating between calendar months. -->
+    <LinearLayout
+        android:id="@+id/layoutMonthNavigation"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/textCalendarTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/buttonPreviousMonth"
+            android:layout_width="56dp"
+            android:layout_height="wrap_content"
+            android:text="‹"
+            android:contentDescription="Previous month" />
+
+        <TextView
+            android:id="@+id/textDisplayedMonth"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="November 2026"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/buttonNextMonth"
+            android:layout_width="56dp"
+            android:layout_height="wrap_content"
+            android:text="›"
+            android:contentDescription="Next month" />
+
+    </LinearLayout>
+
+    <!-- Displays the custom monthly calendar grid. -->
+    <GridLayout
+        android:id="@+id/calendarGrid"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:columnCount="7"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/layoutMonthNavigation"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Identifies the displayed month's event list. -->
+    <TextView
+        android:id="@+id/textSelectedDate"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Events for Selected Date"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/calendarGrid"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Allows the displayed month's events to scroll. -->
+    <ScrollView
+        android:id="@+id/scrollCalendarEvents"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:fillViewport="true"
+        android:scrollbars="vertical"
+        app:layout_constraintTop_toBottomOf="@id/textSelectedDate"
+        app:layout_constraintBottom_toTopOf="@id/buttonBackHome"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Holds the event cards for the displayed month. -->
+        <LinearLayout
+            android:id="@+id/layoutCalendarEvents"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </ScrollView>
+
+    <!-- Returns the user to the Home screen. -->
+    <Button
+        android:id="@+id/buttonBackHome"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Back to Home"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
